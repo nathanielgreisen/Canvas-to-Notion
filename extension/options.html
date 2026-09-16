@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Canvas to Notion Bridge</title><style>body{font:14px -apple-system,sans-serif;max-width:650px;margin:32px}label{display:block;margin-top:18px;font-weight:600}input{box-sizing:border-box;width:100%;padding:8px;margin-top:4px}small{display:block;color:#555;margin-top:5px}button{margin-top:20px;padding:8px 12px}</style></head><body>
+<h1>Canvas to Notion Bridge</h1><p>This extension has no Canvas cookie permission. It asks Chrome only for the exact Canvas HTTPS site you enter.</p>
+<label>Canvas origin<input id="canvasOrigin" placeholder="https://canvas.example.edu"></label><small>Must exactly match <code>canvas_origin</code> in config.json.</small>
+<label>Local bridge URL<input id="bridgeUrl" value="http://127.0.0.1:8765"></label><small>Must remain localhost (127.0.0.1).</small>
+<label>Bridge secret<input id="bridgeSecret" type="password"></label><small>Get it locally with <code>.venv/bin/python sync.py --bridge-secret</code>. It is not a Canvas cookie or Notion token.</small>
+<button id="save">Save and grant Canvas access</button><p id="result" role="status"></p><script src="options.js"></script></body></html>

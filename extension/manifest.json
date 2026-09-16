@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Canvas to Notion Local Bridge",
+  "version": "1.0.0",
+  "description": "Reads Canvas assignments through your signed-in tab and returns JSON to localhost.",
+  "permissions": ["storage", "scripting", "tabs", "alarms"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "options_page": "options.html",
+  "action": {"default_title": "Canvas to Notion Bridge"}
+}
+

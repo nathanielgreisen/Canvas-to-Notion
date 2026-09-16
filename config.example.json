@@ -1,0 +1,25 @@
+{
+  "canvas_origin": "https://SCHOOL_HERE.instructure.com",
+  "bridge_port": 8765,
+  "notion_database_id": "${NOTION_DATABASE_ID}",
+  "notion_version": "2026-03-11",
+  "property_names": {
+    "assignment": "Assignment",
+    "course": "Course",
+    "due_date": "Due Date",
+    "time": "Time",
+    "status": "Status",
+    "submission": "Submission",
+    "link": "Link"
+  },
+  "default_status": "Not Started",
+  "time_option": "30 minutes",
+  "submission_option": "Canvas",
+  "duplicate_key_property": null,
+  "pacific_timezone": "America/Los_Angeles",
+  "allow_create_select_options": false,
+  "bridge_job_ttl_seconds": 90,
+  "bridge_response_max_bytes": 2097152,
+  "canvas_page_limit": 100,
+  "canvas_max_pages": 50
+}
