@@ -29,6 +29,7 @@ class Settings:
     time_option: str
     submission_option: str
     duplicate_key_property: str | None
+    course_code_overrides: dict[str, str]
     pacific_timezone: str
     allow_create_select_options: bool
     bridge_job_ttl_seconds: int
@@ -82,6 +83,9 @@ def load_settings(path: Path = Path("config.json")) -> Settings:
         if set(props) != required or not all(isinstance(v, str) and v.strip() for v in props.values()):
             raise ConfigError("property_names must contain exactly assignment, course, due_date, time, status, submission, link")
         database_id = str(raw.get("notion_database_id") or os.environ.get("NOTION_DATABASE_ID", ""))
+        overrides_raw = raw.get("course_code_overrides", {})
+        if not isinstance(overrides_raw, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip() and "," not in v for k, v in overrides_raw.items()):
+            raise ConfigError("course_code_overrides must be an object of Canvas course IDs or exact titles to comma-free, user-approved codes.")
         select_values = (str(raw["default_status"]), str(raw["time_option"]), str(raw["submission_option"]))
         if any("," in value for value in select_values):
             raise ConfigError("Notion select option names cannot contain commas; adjust default_status, time_option, or submission_option.")
@@ -93,6 +97,7 @@ def load_settings(path: Path = Path("config.json")) -> Settings:
             property_names=dict(props), default_status=str(raw["default_status"]),
             time_option=str(raw["time_option"]), submission_option=str(raw["submission_option"]),
             duplicate_key_property=(str(raw["duplicate_key_property"]).strip() if raw.get("duplicate_key_property") else None),
+            course_code_overrides={key.strip(): value.strip() for key, value in overrides_raw.items()},
             pacific_timezone=str(raw.get("pacific_timezone", "America/Los_Angeles")),
             allow_create_select_options=bool(raw.get("allow_create_select_options", False)),
             bridge_job_ttl_seconds=int(raw.get("bridge_job_ttl_seconds", 90)),

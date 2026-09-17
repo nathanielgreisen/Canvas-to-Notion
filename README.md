@@ -47,6 +47,7 @@ Edit `config.json`. It is the one documented application configuration file:
   "time_option": "30 minutes",
   "submission_option": "Canvas",
   "duplicate_key_property": null,
+  "course_code_overrides": {},
   "pacific_timezone": "America/Los_Angeles",
   "allow_create_select_options": false,
   "bridge_job_ttl_seconds": 90,
@@ -68,13 +69,13 @@ Configure the names in `property_names` exactly as they appear in your Notion ta
 | Course | Select | `CLASSCODE/NormalizedCourseName` |
 | Due Date | Date | ISO-8601 Pacific date-time or empty |
 | Time | Select | `30 minutes` |
-| Status | Select | `Not Started` for newly created pages only |
+| Status | Select or Status | `Not Started` for newly created pages only |
 | Submission | Select | `Canvas` |
 | Link | URL | Canvas-provided assignment URL or empty |
 
 Before any write, validation verifies names, types, and select options. With `allow_create_select_options: false` (the default), add missing Time, Status, Submission, and Course options manually in Notion. Setting it to true may add missing **Course**, Time, and Submission select options; it never creates a missing Status option automatically. This protects your Status workflow. No other fields are created or modified.
 
-Course formatting is deterministic: whitespace is trimmed, Canvas’s SIS course ID is preferred over `course_code`, and the course name has every non-alphanumeric character (including spaces and punctuation) removed while preserving Unicode letters/digits. Thus `The Christian-Faith!` becomes `TheChristianFaith`. Some Canvas sites put a comma-delimited section list in `course_code`; that is rejected rather than used. If no SIS ID is available, a code explicitly shown in the Canvas title’s trailing parentheses is used (for example `Analytical Geometry I(MATH2450.B)` → code `MATH2450.B`, title `Analytical Geometry I`). A course with no usable Canvas-provided code stops the run rather than receiving an invented option.
+Course formatting is deterministic: whitespace is trimmed, Canvas’s SIS course ID is preferred over `course_code`, and the course name has every non-alphanumeric character (including spaces and punctuation) removed while preserving Unicode letters/digits. Thus `The Christian-Faith!` becomes `TheChristianFaith`. Some Canvas sites put a comma-delimited section list in `course_code`; that is rejected rather than used. If no SIS ID is available, a code explicitly shown in the Canvas title’s trailing parentheses is used (for example `Analytical Geometry I(MATH2450.B)` → code `MATH2450.B`, title `Analytical Geometry I`). For an intentional cross-listing, add an explicit `course_code_overrides` entry keyed by the Canvas course ID (preferred) or exact Canvas course title; this is a user-approved code, not an inferred value. A course with no usable Canvas-provided or user-approved code stops the run.
 
 ## Install the Chrome extension
 

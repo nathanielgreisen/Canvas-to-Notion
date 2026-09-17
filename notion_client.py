@@ -90,7 +90,7 @@ class NotionClient:
     def validate_schema(self, discovered: Iterable[PreparedAssignment] = ()) -> tuple[SchemaReport, list[str]]:
         report = self.inspect_schema()
         errors: list[str] = []
-        expected = {"assignment": {"title", "rich_text"}, "course": {"select"}, "due_date": {"date"}, "time": {"select"}, "status": {"select"}, "submission": {"select"}, "link": {"url"}}
+        expected = {"assignment": {"title", "rich_text"}, "course": {"select"}, "due_date": {"date"}, "time": {"select"}, "status": {"select", "status"}, "submission": {"select"}, "link": {"url"}}
         for key, allowed in expected.items():
             name = self.settings.property_names[key]
             prop = report.properties.get(name)

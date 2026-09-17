@@ -84,7 +84,7 @@ class CanvasClient:
         unsupported: list[str] = []
         for course in courses:
             course_id = str(course.get("id", ""))
-            code, name = course_identity(course)
+            code, name = course_identity(course, self.settings.course_code_overrides)
             if not course_id:
                 continue
             if not code:
@@ -109,7 +109,7 @@ class CanvasClient:
         return found
 
 
-def course_identity(course: dict[str, Any]) -> tuple[str, str]:
+def course_identity(course: dict[str, Any], overrides: dict[str, str] | None = None) -> tuple[str, str]:
     """Return a Canvas-provided course code and human course title without inventing either.
 
     Some institutions overload ``course_code`` with a comma-delimited list of
@@ -130,7 +130,12 @@ def course_identity(course: dict[str, Any]) -> tuple[str, str]:
                 title = match.group(1).strip()
             parenthetical_code = match.group(2).strip()
             break
-    code = sis_course_id or parenthetical_code or (course_code if "," not in course_code else "")
+    override = (
+        (overrides or {}).get(str(course.get("id", "")))
+        or (overrides or {}).get(display_name)
+        or (overrides or {}).get(title)
+    )
+    code = override or sis_course_id or parenthetical_code or (course_code if "," not in course_code else "")
     if "," in code:
         code = ""
     return code, title or display_name or course_code

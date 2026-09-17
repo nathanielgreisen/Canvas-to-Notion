@@ -16,6 +16,7 @@
   "time_option": "30 minutes",
   "submission_option": "Canvas",
   "duplicate_key_property": null,
+  "course_code_overrides": {},
   "pacific_timezone": "America/Los_Angeles",
   "allow_create_select_options": false,
   "bridge_job_ttl_seconds": 90,

@@ -22,7 +22,7 @@ def print_report(summary: dict[str, object], settings, notion_ready: bool, canva
     print(f"Canvas connection available: {'yes' if canvas_ready else 'no'}")
     schema = summary.get("schema")
     if schema:
-        expected = {"assignment": {"title", "rich_text"}, "course": {"select"}, "due_date": {"date"}, "time": {"select"}, "status": {"select"}, "submission": {"select"}, "link": {"url"}}
+        expected = {"assignment": {"title", "rich_text"}, "course": {"select"}, "due_date": {"date"}, "time": {"select"}, "status": {"select", "status"}, "submission": {"select"}, "link": {"url"}}
         for key, types in expected.items():
             name = settings.property_names[key]
             prop = schema.properties.get(name)

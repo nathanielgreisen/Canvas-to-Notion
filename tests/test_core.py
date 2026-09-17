@@ -15,7 +15,7 @@ from sync_service import normalize_course_name, parse_pacific, prepare, run_sync
 
 
 def settings(**overrides):
-    values = dict(canvas_origin="https://canvas.example.edu", bridge_port=8765, notion_database_id="database-id", notion_version="2026-03-11", property_names={"assignment":"Assignment","course":"Course","due_date":"Due Date","time":"Time","status":"Status","submission":"Submission","link":"Link"}, default_status="Not Started", time_option="30 minutes", submission_option="Canvas", duplicate_key_property=None, pacific_timezone="America/Los_Angeles", allow_create_select_options=False, bridge_job_ttl_seconds=1, bridge_response_max_bytes=10000, canvas_page_limit=100, canvas_max_pages=5)
+    values = dict(canvas_origin="https://canvas.example.edu", bridge_port=8765, notion_database_id="database-id", notion_version="2026-03-11", property_names={"assignment":"Assignment","course":"Course","due_date":"Due Date","time":"Time","status":"Status","submission":"Submission","link":"Link"}, default_status="Not Started", time_option="30 minutes", submission_option="Canvas", duplicate_key_property=None, course_code_overrides={}, pacific_timezone="America/Los_Angeles", allow_create_select_options=False, bridge_job_ttl_seconds=1, bridge_response_max_bytes=10000, canvas_page_limit=100, canvas_max_pages=5)
     values.update(overrides); return Settings(**values)
 
 
@@ -72,6 +72,8 @@ def test_course_identity_prefers_sis_id_and_reads_human_title():
     code, title = course_identity({"course_code": "12345.202710.EA, 12391.202710.EA", "name": "Analytical Geometry and Calculus I(MATH2450.B)"})
     assert code == "MATH2450.B"
     assert title == "Analytical Geometry and Calculus I"
+    code, title = course_identity({"id": 9, "course_code": "1, 2, 3", "name": "Extended Add Magnolia Singers (MUSC-0910-A, MUSC-4900C-A, MUSC-5610-A)"}, {"Extended Add Magnolia Singers": "MUSC0910"})
+    assert code == "MUSC0910" and title == "Extended Add Magnolia Singers"
 
 
 def schema():
@@ -107,6 +109,16 @@ def test_missing_properties_types_and_options_reported():
     bad = schema(); props = dict(bad.properties); props["Time"] = {"type":"select", "select":{"options":[]}}
     _, errors = SchemaClient(SchemaReport("db", "ds", props)).validate_schema([prepared()])
     assert any("Missing time select option" in x for x in errors)
+
+
+def test_native_notion_status_property_is_supported():
+    native = schema(); props = dict(native.properties)
+    props["Status"] = {"type": "status", "status": {"options": [{"name": "Not Started"}]}}
+    client = SchemaClient(SchemaReport("db", "ds", props))
+    _, errors = client.validate_schema([prepared()])
+    assert errors == []
+    payload = client.payload_for(prepared(), True, SchemaReport("db", "ds", props))
+    assert payload["Status"]["status"]["name"] == "Not Started"
 
 
 class SyncCanvas:
