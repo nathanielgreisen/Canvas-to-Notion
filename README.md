@@ -100,6 +100,10 @@ In one terminal, keep the bridge running in the foreground:
 In another terminal:
 
 ```zsh
+# Recommended: one Canvas read. It validates, prints the proposed changes,
+# and synchronizes automatically only if validation/planning succeed.
+.venv/bin/python sync.py --run
+
 # Checks the bridge, Canvas session, Notion access/schema, and assignment discovery.
 .venv/bin/python sync.py --validate
 
@@ -109,6 +113,8 @@ In another terminal:
 # Performs one synchronization pass.
 .venv/bin/python sync.py --sync
 ```
+
+`--run` is the normal command. It discovers Canvas assignments once, validates the Notion schema, queries Notion once to print its create/update plan, then applies that exact plan. It stops before writes on any validation error or ambiguous match. The individual commands remain available for troubleshooting and manual review.
 
 The validation report includes database reachability, integration authorization, every property/type/option failure, Canvas availability, assignments discovered, pages created, duplicates skipped, existing pages preserved, failures, and assignments that have no due date.
 

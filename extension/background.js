@@ -57,20 +57,25 @@ async function dispatch(job) {
   await bridgeFetch(`/v1/jobs/${encodeURIComponent(job.job_id)}/result`, { method: "POST", body: JSON.stringify(response) });
 }
 let polling = false;
-async function pollOnce() {
-  if (polling) return; polling = true;
+async function pollLoop() {
+  if (polling) return;
+  polling = true;
   try {
     const s = await settings();
     if (!s.canvasOrigin || !s.bridgeSecret) return;
-    const job = await bridgeFetch("/v1/jobs/next");
-    if (job && job.job_id) await dispatch(job);
+    // Keep one authenticated long-poll open. Every queued Canvas request is
+    // collected immediately after the preceding one—there is no alarm delay.
+    while (true) {
+      const job = await bridgeFetch("/v1/jobs/next");
+      if (job && job.job_id) await dispatch(job);
+    }
   } catch (error) { console.warn("Canvas bridge poll failed:", error.message); }
   finally { polling = false; }
 }
-chrome.runtime.onInstalled.addListener(async () => { chrome.alarms.create("poll", { periodInMinutes: 0.5 }); await pollOnce(); });
-chrome.runtime.onStartup.addListener(pollOnce);
-chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === "poll") pollOnce(); });
+chrome.runtime.onInstalled.addListener(() => { chrome.alarms.create("poll", { periodInMinutes: 0.5 }); pollLoop(); });
+chrome.runtime.onStartup.addListener(pollLoop);
+chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === "poll") pollLoop(); });
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-  if (message.type === "options-saved") registerCanvasScript(message.origin).then(pollOnce).then(() => respond({ ok: true })).catch(error => respond({ error: error.message }));
+  if (message.type === "options-saved") registerCanvasScript(message.origin).then(() => { pollLoop(); respond({ ok: true }); }).catch(error => respond({ error: error.message }));
   return true;
 });

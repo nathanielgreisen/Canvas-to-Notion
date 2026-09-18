@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
 from canvas_client import CanvasError, validate_canvas_url
@@ -38,6 +39,7 @@ class JobQueue:
         self.jobs: dict[str, Job] = {}
         self.pending: queue.Queue[str] = queue.Queue()
         self.extension_seen_at: float | None = None
+        self.extension_event = threading.Event()
         self.lock = threading.Lock()
 
     def authenticate(self, supplied: str | None) -> bool:
@@ -55,6 +57,7 @@ class JobQueue:
 
     def next_job(self, timeout: float = 25) -> Job | None:
         self.extension_seen_at = time.monotonic()
+        self.extension_event.set()
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
@@ -99,6 +102,17 @@ class JobQueue:
             if now > job.expires_at + 300:
                 del self.jobs[key]
 
+    def extension_connected(self) -> bool:
+        return self.extension_seen_at is not None and time.monotonic() - self.extension_seen_at < 40
+
+    def wait_for_extension(self, timeout: float) -> bool:
+        """Wait once for Chrome's next long-poll instead of client-side sleep loops."""
+        if self.extension_connected():
+            return True
+        self.extension_event.clear()
+        self.extension_event.wait(timeout)
+        return self.extension_connected()
+
 
 class BridgeRequester:
     """Client used by sync.py; it submits only validated GET jobs to localhost."""
@@ -120,10 +134,11 @@ class BridgeRequester:
         except URLError as exc:
             raise BridgeError("Local bridge is unavailable. Start `python3 server.py` in this project.") from exc
 
-    def health(self) -> dict[str, Any]:
-        request = Request(self.settings.bridge_url + "/v1/health", headers={"X-Bridge-Secret": self.secret})
+    def health(self, wait_seconds: float = 0) -> dict[str, Any]:
+        wait = min(max(wait_seconds, 0), 5)
+        request = Request(self.settings.bridge_url + f"/v1/health?wait={wait}", headers={"X-Bridge-Secret": self.secret})
         try:
-            with urlopen(request, timeout=5) as response:
+            with urlopen(request, timeout=wait + 3) as response:
                 return json.loads(response.read())
         except (HTTPError, URLError) as exc:
             raise BridgeError("Local bridge is unavailable or rejected its secret. Start server.py and reconfigure the extension secret if needed.") from exc
@@ -144,13 +159,18 @@ def make_handler(queue_: JobQueue):
         def do_OPTIONS(self) -> None: self._send(204)
         def do_GET(self) -> None:
             if not self._auth(): return
-            if self.path == "/v1/health":
-                self._send(200, {"ok": True, "extension_connected": queue_.extension_seen_at is not None and time.monotonic() - queue_.extension_seen_at < 40}); return
-            if self.path == "/v1/jobs/next":
+            request_path = urlsplit(self.path)
+            if request_path.path == "/v1/health":
+                requested = parse_qs(request_path.query).get("wait", ["0"])[0]
+                try: wait_seconds = min(max(float(requested), 0), 5)
+                except ValueError: wait_seconds = 0
+                connected = queue_.wait_for_extension(wait_seconds) if wait_seconds else queue_.extension_connected()
+                self._send(200, {"ok": True, "extension_connected": connected}); return
+            if request_path.path == "/v1/jobs/next":
                 job = queue_.next_job()
                 self._send(200, {"job_id": job.id, "url": job.url, "method": "GET"} if job else {"job": None}); return
-            if self.path.startswith("/v1/jobs/") and self.path.endswith("/wait"):
-                job_id = self.path.split("/")[3]
+            if request_path.path.startswith("/v1/jobs/") and request_path.path.endswith("/wait"):
+                job_id = request_path.path.split("/")[3]
                 with queue_.lock: job = queue_.jobs.get(job_id)
                 if not job: self._send(404, {"error": "unknown job"}); return
                 try: self._send(200, queue_.wait(job, queue_.settings.bridge_job_ttl_seconds + 10))

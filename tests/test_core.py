@@ -11,7 +11,7 @@ from canvas_client import CanvasClient, CanvasError, course_identity, validate_c
 from config import Settings
 from models import CanvasAssignment, PreparedAssignment
 from notion_client import NotionClient, NotionHTTPError, SchemaReport
-from sync_service import normalize_course_name, parse_pacific, prepare, run_sync
+from sync_service import normalize_course_name, parse_pacific, prepare, run_all, run_sync
 
 
 def settings(**overrides):
@@ -122,7 +122,10 @@ def test_native_notion_status_property_is_supported():
 
 
 class SyncCanvas:
-    def discover_assignments(self): return [prepared().source]
+    def __init__(self): self.calls = 0
+    def discover_assignments(self):
+        self.calls += 1
+        return [prepared().source]
 
 class SyncNotion:
     settings = settings()
@@ -151,6 +154,16 @@ def test_dry_run_never_writes_notion():
     assert notion.created == 0 and notion.updated == 0
 
 
+def test_run_all_reads_canvas_once_and_reuses_one_plan():
+    canvas = SyncCanvas()
+    notion = SyncNotion(("different", "different", None, None, None))
+    validation, plan, completed = run_all(canvas, notion)
+    assert canvas.calls == 1
+    assert validation["assignments_discovered"] == 1
+    assert plan["would_create"] == ["Essay"]
+    assert completed["pages_created"] == 1 and notion.created == 1
+
+
 @pytest.mark.parametrize("status", [401, 403, 404, 409, 429, 500, 503])
 def test_notion_http_errors_are_clear(status, monkeypatch):
     def opener(_request, timeout=20):
@@ -167,7 +180,7 @@ def test_validate_command_with_mocked_credentials(monkeypatch):
     monkeypatch.setenv("NOTION_TOKEN", "secret_mock")
     monkeypatch.setattr(sync, "NotionClient", lambda *_: object())
     class MockRequester:
-        def health(self): return {"ok": True, "extension_connected": True}
+        def health(self, wait_seconds=0): return {"ok": True, "extension_connected": True}
     monkeypatch.setattr(sync, "BridgeRequester", lambda *_: MockRequester())
     monkeypatch.setattr(sync, "CanvasClient", lambda *_: object())
     monkeypatch.setattr(sync, "run_sync", lambda *_args, **_kwargs: {"assignments_discovered": 1, "pages_created": 0, "duplicates_skipped": 1, "existing_pages_preserved": 1, "failures": 0, "missing_due_dates": [], "validation_errors": [], "ambiguous_matches": []})

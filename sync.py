@@ -3,13 +3,12 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import time
 
 from bridge import BridgeError, BridgeRequester
 from canvas_client import CanvasClient, CanvasError
 from config import ConfigError, get_or_create_bridge_secret, load_dotenv, load_settings
 from notion_client import NotionClient, NotionError
-from sync_service import run_sync
+from sync_service import run_all, run_sync
 
 
 def print_report(summary: dict[str, object], settings, notion_ready: bool, canvas_ready: bool, bridge_status: dict | None = None) -> None:
@@ -43,12 +42,23 @@ def print_report(summary: dict[str, object], settings, notion_ready: bool, canva
     for name in summary.get("ambiguous_matches", []): print("ERROR: ambiguous Notion match for " + name)
 
 
+def print_plan(summary: dict[str, object]) -> None:
+    print("\nDry-run plan (no additional Canvas read)")
+    print(f"Would create: {len(summary.get('would_create', []))}")
+    print(f"Would update: {len(summary.get('would_update', []))}")
+    print(f"Duplicates unchanged: {summary.get('duplicates_skipped', 0)}")
+    for name in summary.get("would_create", []): print("CREATE: " + name)
+    for name in summary.get("would_update", []): print("UPDATE: " + name)
+    for name in summary.get("ambiguous_matches", []): print("ERROR: ambiguous Notion match for " + name)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read-only Canvas assignment sync to Notion")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--validate", action="store_true")
     group.add_argument("--dry-run", action="store_true")
     group.add_argument("--sync", action="store_true")
+    group.add_argument("--run", action="store_true", help="Validate, plan, and synchronize using one Canvas read")
     group.add_argument("--bridge-secret", action="store_true")
     args = parser.parse_args()
     if args.bridge_secret:
@@ -59,23 +69,30 @@ def main() -> int:
         notion = NotionClient(settings, token)
         requester = BridgeRequester(settings)
         print("Checking local bridge…", flush=True)
-        bridge_status = requester.health()
+        bridge_status = requester.health(wait_seconds=5)
         if not bridge_status.get("extension_connected"):
-            print("Waiting for the Chrome extension to connect (up to 35 seconds)…", flush=True)
-            for _ in range(7):
-                time.sleep(5)
-                bridge_status = requester.health()
-                if bridge_status.get("extension_connected"):
-                    break
-            else:
-                raise BridgeError(
-                    "Chrome extension is not polling the local bridge. In chrome://extensions, "
-                    "reload ‘Canvas to Notion Local Bridge’, open its Options, confirm the Canvas "
-                    "origin and bridge secret, then save/grant Canvas access. Keep Chrome running."
-                )
+            raise BridgeError(
+                "Chrome extension is not polling the local bridge. In chrome://extensions, "
+                "reload ‘Canvas to Notion Local Bridge’, open its Options, confirm the Canvas "
+                "origin and bridge secret, then save/grant Canvas access. Keep Chrome running."
+            )
         print("Chrome extension connected. Reading Canvas assignments…", flush=True)
         canvas = CanvasClient(settings, requester)
-        # validate intentionally reads both systems; dry run makes no writes.
+        if args.run:
+            validation, plan, completed = run_all(canvas, notion)
+            print_report(validation, settings, True, True, requester.health())
+            if validation["validation_errors"]:
+                return 1
+            if plan is not None:
+                print_plan(plan)
+            if completed is None:
+                return 1
+            print("\nSynchronization complete")
+            print(f"Pages created: {completed['pages_created']}")
+            print(f"Existing pages preserved: {completed['existing_pages_preserved']}")
+            print(f"Duplicates unchanged: {completed['duplicates_skipped']}")
+            return 0
+        # Existing standalone modes remain available; dry run makes no writes.
         summary = run_sync(canvas, notion, dry_run=args.dry_run or args.validate)
         print_report(summary, settings, True, True, requester.health())
         if args.dry_run:
