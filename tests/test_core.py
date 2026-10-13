@@ -90,8 +90,10 @@ def test_notion_payload_and_status_preservation():
     update = client.payload_for(prepared(), False, schema())
     assert create["Assignment"]["title"][0]["text"]["content"] == "Essay"
     assert create["Due Date"]["date"]["start"].endswith("-07:00")
+    assert create["Time"]["select"]["name"] == "30 minutes"
     assert create["Status"]["select"]["name"] == "Not Started"
     assert "Status" not in update
+    assert "Time" not in update
     assert update["Link"]["url"].endswith("/5")
 
 

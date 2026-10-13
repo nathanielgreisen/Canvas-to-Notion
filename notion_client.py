@@ -160,10 +160,10 @@ class NotionClient:
         payload: dict[str, Any] = {
             p["assignment"]: {title_kind: [text_value]},
             p["course"]: {"select": {"name": assignment.course_value}},
-            p["due_date"]: {"date": {"start": assignment.due_date.isoformat()} if assignment.due_date else None},
-            p["time"]: {"select": {"name": self.settings.time_option}},
-            p["submission"]: {"select": {"name": self.settings.submission_option}},
+            p["due_date"]: {"date": {"start": assignment.due_date.isoformat()} if assignment.due_date else None}
         }
+        if include_status:
+            payload[p["time"]] = {"select": {"name": self.settings.time_option}}
         if assignment.source.html_url:
             payload[p["link"]] = {"url": assignment.source.html_url}
         else:

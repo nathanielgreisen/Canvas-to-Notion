@@ -96,7 +96,7 @@ def build_plan(notion: NotionClient, assignments: list[PreparedAssignment], summ
 
 
 def apply_plan(notion: NotionClient, changes: list[PlannedChange], summary: dict[str, object]) -> dict[str, object]:
-    """Perform the already-reviewed plan; Status is still omitted on updates."""
+    """Perform the already-reviewed plan; Status and Time are omitted on updates."""
     if summary["validation_errors"] or summary["failures"]:
         return summary
     schema = summary["schema"]
